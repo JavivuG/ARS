@@ -13,11 +13,13 @@
 
 
 int main(int argc, char const *argv[]){
-    int desc_socket;
+    int desc_socket, n;
     unsigned short puerto=5;
+    char buffer[80];
     const char* cadena;
     struct in_addr direccion_ip;
     struct sockaddr_in addr_server;
+    socklen_t addr_server_len=sizeof(addr_server);
 
     // Compruebo que el formato de entrada es el correcto
     if (argc<3 || argc>5 || argc==4){
@@ -54,9 +56,29 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    // Configuro la IP, puerto y tipo de IP del servidor
     addr_server.sin_family = AF_INET;
-    addr_server.sin_port = puerto;
+    addr_server.sin_port = htons(puerto); // Convierto el numero de puerto a entero de 16 bits
     addr_server.sin_addr.s_addr = direccion_ip.s_addr;
+
+    // Envio la cadena al servidor
+    if (sendto(desc_socket, cadena, strlen(cadena), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
+        perror("sendto()");
+        close(desc_socket);
+        exit(EXIT_FAILURE);
+    }
+
+    // Recibo el mensaje del servidor en el buffer
+    if ((n=recvfrom(desc_socket, buffer, sizeof(buffer), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
+        perror("recvfrom()");
+        close(desc_socket);
+        exit(EXIT_FAILURE);
+    }
+
+    buffer[n]='\0';
+    printf("%s\n", buffer);
+
+    close(desc_socket); // Cierro el socket
 
     return 0;
 }
