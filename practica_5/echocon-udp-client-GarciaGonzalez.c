@@ -69,7 +69,7 @@ int main(int argc, char const *argv[]){
     }
 
     // Recibo el mensaje del servidor en el buffer
-    if ((n=recvfrom(desc_socket, buffer, sizeof(buffer), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
+    if ((n=recvfrom(desc_socket, buffer, strlen(cadena), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
         perror("recvfrom()");
         close(desc_socket);
         exit(EXIT_FAILURE);
