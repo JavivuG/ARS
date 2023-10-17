@@ -61,6 +61,11 @@ int main(int argc, char const *argv[]){
     addr_server.sin_port = htons(puerto); // Convierto el numero de puerto a entero de 16 bits
     addr_server.sin_addr.s_addr = direccion_ip.s_addr;
 
+    if (connect(desc_socket,(struct sockaddr *) &addr_server, addr_server_len)<0){
+        perror("connect()");
+        exit(EXIT_FAILURE);
+    }
+
     // Envio la cadena al servidor
     if (send(desc_socket, cadena, strlen(cadena), 0)<0){
         perror("sendto()");
@@ -69,7 +74,7 @@ int main(int argc, char const *argv[]){
     }
 
     // Recibo el mensaje del servidor en el buffer
-    if ((n=recv(desc_socket, buffer, sizeof(buffer), 0)<0){
+    if ((n=recv(desc_socket, buffer, strlen(cadena), 0))<0){
         perror("recvfrom()");
         close(desc_socket);
         exit(EXIT_FAILURE);
@@ -77,6 +82,7 @@ int main(int argc, char const *argv[]){
 
     buffer[n]='\0';
     printf("%s\n", buffer);
+
 
     close(desc_socket); // Cierro el socket
 

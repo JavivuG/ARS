@@ -55,6 +55,7 @@ int main(int argc, char const *argv[]){
         perror("socket()");
         exit(EXIT_FAILURE);
     }
+    
 
     // Configuro la IP, puerto y tipo de IP del servidor
     addr_server.sin_family = AF_INET;

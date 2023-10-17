@@ -13,7 +13,7 @@
 void conversionCadena(char *cadena);
 
 int main(int argc, char const *argv[]){
-    int desc_socket, n;
+    int socket_ini, socket_cliente, n, pid, nhijo=0;
     unsigned short puerto=5;
     char buffer[80];
     struct sockaddr_in addr_server, addr_cliente;
@@ -33,7 +33,7 @@ int main(int argc, char const *argv[]){
     }
 
     // Creo el socket
-    if ((desc_socket = socket(AF_INET,SOCK_STREAM,0))<0){
+    if ((socket_ini = socket(AF_INET,SOCK_STREAM,0))<0){
         perror("socket()");
         exit(EXIT_FAILURE);
     }
@@ -43,8 +43,14 @@ int main(int argc, char const *argv[]){
     addr_server.sin_addr.s_addr = INADDR_ANY;
 
     // Bindeo el socket
-    if (bind(desc_socket, (struct sockaddr *) &addr_server, sizeof(addr_server))<0){
+    if (bind(socket_ini, (struct sockaddr *) &addr_server, sizeof(addr_server))<0){
         perror("bind()");
+        exit(EXIT_FAILURE);
+    }
+
+    // Cambio socket a modo apertura pasiva (preparado para recibir conexiones)
+    if (listen(socket_ini, 3)<0){
+        perror("listen()");
         exit(EXIT_FAILURE);
     }
 
@@ -52,23 +58,45 @@ int main(int argc, char const *argv[]){
 
     while(true){
 
-        // Recibo el mensaje del servidor en el buffer
-        if ((n=recv(desc_socket, buffer, sizeof(buffer), 0))<0){
-            perror("recvfrom()");
-            close(desc_socket);
+        // accept
+        if ((socket_cliente=accept(socket_ini, (struct sockaddr *) &addr_cliente, &addr_cliente_len))<0){
+            perror("accept()");
             exit(EXIT_FAILURE);
         }
 
-        buffer[n]='\0';
-        conversionCadena(buffer);
+        // fork
+        if ((pid=fork())==0){ // Proceso hijo
+            nhijo++;
+            // Recibo el mensaje del servidor en el buffer
+            if ((n=recv(socket_cliente, buffer, sizeof(buffer), 0))<0){
+                perror("recvfrom()");
+                close(socket_cliente);
+                exit(EXIT_FAILURE);
+            }
 
-        // Devuelvo la cadena modificada al cliente
-        if (send(desc_socket, buffer, n, 0)<0){
-            perror("sendto()");
-            close(desc_socket);
-            exit(EXIT_FAILURE);
-        } 
-    }
+            buffer[n]='\0';
+            conversionCadena(buffer);
+
+            // Devuelvo la cadena modificada al cliente
+            if (send(socket_cliente, buffer, n, 0)<0){
+                perror("sendto()");
+                close(socket_cliente);
+                exit(EXIT_FAILURE);
+            } 
+
+            // SHUTDOWN
+            if (shutdown(socket_cliente,SHUT_WR)<0){
+                perror("shutdown()");
+                close(socket_cliente);
+                exit(EXIT_FAILURE);
+            }
+            // RECV
+            while((n=recv(socket_cliente, buffer, sizeof(buffer), 0))!=0);
+
+            close(socket_cliente);
+        }
+        
+    } // Fin while
 
     return 0;
 }
