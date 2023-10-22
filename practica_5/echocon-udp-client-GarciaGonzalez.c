@@ -15,7 +15,7 @@
 int main(int argc, char const *argv[]){
     int desc_socket, bytes;
     unsigned short puerto=5; // Numero de puerto para la conexion por defecto
-    char buffer[80];
+    char buffer[80]; // 80 debido a que es el tamaño maximo permitido
     const char* cadena;
     struct in_addr direccion_ip;
     struct sockaddr_in addr_server, addr_client;
@@ -26,6 +26,8 @@ int main(int argc, char const *argv[]){
         fprintf(stderr, "Uso: ./echocon-udp-client ip_servidor [-p puerto-servidor] cadena\n");
         exit(EXIT_FAILURE);
     }
+
+
 
     // Guardo la cadena para usarla posteriormente
     if (argc==3){
@@ -44,13 +46,13 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    // Convierto la direccion IP introducida
+    // Convierto la direccion IP introducida a entero de 32 bits
     if (inet_aton(argv[1], &direccion_ip) == 0) {
         fprintf(stderr, "inet_aton(): direccion IP invalida\n");
         exit(EXIT_FAILURE);
     }
 
-    // Creo el socket
+    // Creo el socket UDP
     if ((desc_socket = socket(AF_INET,SOCK_DGRAM,0))<0){
         perror("socket()");
         exit(EXIT_FAILURE);
@@ -69,7 +71,7 @@ int main(int argc, char const *argv[]){
     }
 
     // Configuro la IP, puerto y tipo de IP del servidor
-    addr_server.sin_family = AF_INET;
+    addr_server.sin_family = AF_INET; // Tipo IPv4
     addr_server.sin_port = htons(puerto); // Convierto el numero de puerto a entero de 16 bits
     addr_server.sin_addr.s_addr = direccion_ip.s_addr;
 
@@ -81,7 +83,7 @@ int main(int argc, char const *argv[]){
     }
 
     // Recibo el mensaje del servidor en el buffer
-    // La variables bytes indica los bytes recibidos desde el servidor
+    // La variable bytes indica los bytes recibidos desde el servidor
     if ((bytes=recvfrom(desc_socket, buffer, strlen(cadena), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
         perror("recvfrom()");
         close(desc_socket);

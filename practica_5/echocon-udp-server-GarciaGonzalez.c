@@ -1,16 +1,16 @@
 // Practica Tema 5: García González, Javier
+#include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <stdbool.h>
-#include <ctype.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <ctype.h>
 #include <errno.h>
 
-void conversionCadena(char *cadena);
+void conversionCadena(char *cadena); // Funcion que realiza la conversion de la cadena
 
 int main(int argc, char const *argv[]){
     int desc_socket, bytes;
@@ -20,26 +20,28 @@ int main(int argc, char const *argv[]){
     socklen_t addr_cliente_len=sizeof(addr_cliente);
 
     // Compruebo que el formato de entrada es el correcto
-    if (argc>4 || argc==2){
+    if (argc>3 || argc==2){
         fprintf(stderr, "Uso: ./echocon-udp-server [-p puerto-servidor]\n");
         exit(EXIT_FAILURE);
     }
 
-    if (argc==4){
-        if (sscanf(argv[3],"%hu", &puerto)!=1) { // Puerto indicado con el parametro -p
+
+
+    if (argc==3){ 
+        if (sscanf(argv[2],"%hu", &puerto)!=1) { // Puerto indicado con el parametro -p
             fprintf(stderr, "puerto invalido");
             exit(EXIT_FAILURE);
         }
     }
 
-    // Creo el socket
+    // Creo el socket UDP
     if ((desc_socket = socket(AF_INET,SOCK_DGRAM,0))<0){
         perror("socket()");
         exit(EXIT_FAILURE);
     }
 
     // Configuro la direccion IP, puerto y tipo de la direccion del servidor
-    addr_server.sin_family = AF_INET;
+    addr_server.sin_family = AF_INET; // Tipo IPv4
     addr_server.sin_port = htons(puerto);
     addr_server.sin_addr.s_addr = INADDR_ANY;
 
@@ -51,8 +53,8 @@ int main(int argc, char const *argv[]){
 
     printf("--- Servidor iniciado ---\n\n");
 
+    // Espera indefinida para aceptar datagramas UDP
     while(true){
-
         // Recibo el mensaje del servidor en el buffer
         if ((bytes=recvfrom(desc_socket, buffer, sizeof(buffer), 0, (struct sockaddr *) &addr_cliente, &addr_cliente_len))<0){
             perror("recvfrom()");
@@ -60,8 +62,8 @@ int main(int argc, char const *argv[]){
             exit(EXIT_FAILURE);
         }
 
-        buffer[bytes]='\0';
-        conversionCadena(buffer);
+        buffer[bytes]='\0'; // Cadena recibida por el cliente
+        conversionCadena(buffer); // La convierto a mayusculo y/o minusucla
 
         // Devuelvo la cadena modificada al cliente
         if (sendto(desc_socket, buffer, bytes, 0,(struct sockaddr *) &addr_cliente, addr_cliente_len)<0){
@@ -76,10 +78,12 @@ int main(int argc, char const *argv[]){
 
 // Funcion que cambia las mayusculas a minusculas en una cadena y viceversa
 void conversionCadena(char* cadena){
-    int caracter;
+    int caracter, i;
     
     // Convertir la cadena copiada a mayúsculas
-    for (int i = 0; i < strlen(cadena); i++) {
+    // Recorro la cadena
+    for (i = 0; i < strlen(cadena); i++) {
+        // Uso las funciones toupper y tolower ya definidas para convertir a mayuscula y/o minuscula
         caracter=toupper(cadena[i]);
 
         if (cadena[i]==caracter){ // El caracter ya era mayuscula, por tanto, lo hago minuscula
