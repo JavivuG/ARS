@@ -66,7 +66,7 @@ int main(int argc, char const *argv[]){
 
         // fork
         if ((pid=fork())==0){ // Proceso hijo
-            nhijo++;
+            
             // Recibo el mensaje del servidor en el buffer
             if ((n=recv(socket_cliente, buffer, sizeof(buffer), 0))<0){
                 perror("recvfrom()");

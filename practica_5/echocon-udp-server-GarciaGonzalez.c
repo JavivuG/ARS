@@ -13,9 +13,9 @@
 void conversionCadena(char *cadena);
 
 int main(int argc, char const *argv[]){
-    int desc_socket, n;
-    unsigned short puerto=5;
-    char buffer[80];
+    int desc_socket, bytes;
+    unsigned short puerto=5; // Puerto en el que se ejecuta la aplicacion por defecto
+    char buffer[80]; // 80 porque es el tamaño maximo permitido que se puede recibir
     struct sockaddr_in addr_server, addr_cliente;
     socklen_t addr_cliente_len=sizeof(addr_cliente);
 
@@ -38,11 +38,12 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    // Configuro la direccion IP, puerto y tipo de la direccion del servidor
     addr_server.sin_family = AF_INET;
     addr_server.sin_port = htons(puerto);
     addr_server.sin_addr.s_addr = INADDR_ANY;
 
-    // Bindeo el socket
+    // Bindeo el socket con su direccion IP y puerto
     if (bind(desc_socket, (struct sockaddr *) &addr_server, sizeof(addr_server))<0){
         perror("bind()");
         exit(EXIT_FAILURE);
@@ -53,17 +54,17 @@ int main(int argc, char const *argv[]){
     while(true){
 
         // Recibo el mensaje del servidor en el buffer
-        if ((n=recvfrom(desc_socket, buffer, sizeof(buffer), 0, (struct sockaddr *) &addr_cliente, &addr_cliente_len))<0){
+        if ((bytes=recvfrom(desc_socket, buffer, sizeof(buffer), 0, (struct sockaddr *) &addr_cliente, &addr_cliente_len))<0){
             perror("recvfrom()");
             close(desc_socket);
             exit(EXIT_FAILURE);
         }
 
-        buffer[n]='\0';
+        buffer[bytes]='\0';
         conversionCadena(buffer);
 
         // Devuelvo la cadena modificada al cliente
-        if (sendto(desc_socket, buffer, n, 0,(struct sockaddr *) &addr_cliente, addr_cliente_len)<0){
+        if (sendto(desc_socket, buffer, bytes, 0,(struct sockaddr *) &addr_cliente, addr_cliente_len)<0){
             perror("sendto()");
             close(desc_socket);
             exit(EXIT_FAILURE);
@@ -81,7 +82,7 @@ void conversionCadena(char* cadena){
     for (int i = 0; i < strlen(cadena); i++) {
         caracter=toupper(cadena[i]);
 
-        if (cadena[i]==caracter){
+        if (cadena[i]==caracter){ // El caracter ya era mayuscula, por tanto, lo hago minuscula
             cadena[i] = tolower(cadena[i]);
         }
         else {

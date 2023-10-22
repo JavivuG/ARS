@@ -13,12 +13,12 @@
 
 
 int main(int argc, char const *argv[]){
-    int desc_socket, n;
-    unsigned short puerto=5;
+    int desc_socket, bytes;
+    unsigned short puerto=5; // Numero de puerto para la conexion por defecto
     char buffer[80];
     const char* cadena;
     struct in_addr direccion_ip;
-    struct sockaddr_in addr_server;
+    struct sockaddr_in addr_server, addr_client;
     socklen_t addr_server_len=sizeof(addr_server);
 
     // Compruebo que el formato de entrada es el correcto
@@ -31,7 +31,7 @@ int main(int argc, char const *argv[]){
     if (argc==3){
         cadena=argv[2];
     }
-    else {
+    else { // Caso en el que se indica el numero de puerto
         cadena=argv[4];
         if (sscanf(argv[3],"%hu", &puerto)!=1) { // Puerto indicado con el parametro -p
             fprintf(stderr, "Puerto invalido\n");
@@ -56,6 +56,17 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
     
+    // Configuro la IP, puerto y tipo de direccion del cliente
+    addr_client.sin_family = AF_INET;
+    addr_client.sin_port = 0; // Poniendo 0 el SO elegirá un puerto automaticamente que este libre
+    addr_client.sin_addr.s_addr = INADDR_ANY; 
+
+    // Conecto el socket a la direccion IP y puerto del cliente
+    if (bind(desc_socket,(struct sockaddr *) &addr_client, sizeof(addr_client))<0){
+        perror("bind()");
+        close(desc_socket);
+        exit(EXIT_FAILURE);
+    }
 
     // Configuro la IP, puerto y tipo de IP del servidor
     addr_server.sin_family = AF_INET;
@@ -70,13 +81,14 @@ int main(int argc, char const *argv[]){
     }
 
     // Recibo el mensaje del servidor en el buffer
-    if ((n=recvfrom(desc_socket, buffer, strlen(cadena), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
+    // La variables bytes indica los bytes recibidos desde el servidor
+    if ((bytes=recvfrom(desc_socket, buffer, strlen(cadena), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
         perror("recvfrom()");
         close(desc_socket);
         exit(EXIT_FAILURE);
     }
 
-    buffer[n]='\0';
+    buffer[bytes]='\0';
     printf("%s\n", buffer);
 
     close(desc_socket); // Cierro el socket
