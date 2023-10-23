@@ -1,4 +1,6 @@
 *.md
 practica_5/echocon-udp-client
 practica_5/echocon-udp-server
+practica_6/echocon-tcp-client
+practica_6/echocon-tcp-server
 .vscode
