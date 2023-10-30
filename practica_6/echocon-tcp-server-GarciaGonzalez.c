@@ -79,7 +79,7 @@ int main(int argc, char const *argv[]){
             
             // Recibo el mensaje del servidor en el buffer
             if ((bytes=recv(socket_cliente, buffer, sizeof(buffer), 0))<0){
-                perror("recvfrom()");
+                perror("recv()");
                 close(socket_cliente);
                 exit(EXIT_FAILURE);
             }
@@ -89,7 +89,7 @@ int main(int argc, char const *argv[]){
 
             // Devuelvo la cadena modificada al cliente
             if (send(socket_cliente, buffer, bytes, 0)<0){
-                perror("sendto()");
+                perror("send()");
                 close(socket_cliente);
                 exit(EXIT_FAILURE);
             } 

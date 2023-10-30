@@ -80,14 +80,14 @@ int main(int argc, char const *argv[]){
 
     // Envio la cadena al servidor
     if (send(desc_socket, cadena, strlen(cadena), 0)<0){
-        perror("sendto()");
+        perror("send()");
         close(desc_socket);
         exit(EXIT_FAILURE);
     }
 
     // Recibo el mensaje del servidor en el buffer
     if ((bytes=recv(desc_socket, buffer, strlen(cadena), 0))<0){
-        perror("recvfrom()");
+        perror("recv()");
         close(desc_socket);
         exit(EXIT_FAILURE);
     }
