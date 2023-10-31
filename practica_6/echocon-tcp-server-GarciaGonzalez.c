@@ -7,18 +7,19 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <signal.h>
 #include <netinet/ip.h>
 #include <errno.h>
 
 // Variable global
-int socket_ini; // Descriptor del socket principal
+int socket_ini, socket_cliente; // Descriptor del socket principal
 
 void conversionCadena(char *cadena); // Funcion para convertir la cadena de mayuscula a miniscula y viceversa
 void signal_handler(int signum); // Funcion que se ejecuta al recibir la señal Ctrl+C
 
 int main(int argc, char const *argv[]){
-    int socket_cliente, bytes, pid;
+    int  bytes, pid, optval=1; 
     unsigned short puerto=5; // Puerto en el que se ejecuta la aplicacion por defecto
     char buffer[80]; // 80 porque es el tamaño maximo permitido que se puede recibir
     struct sockaddr_in addr_server, addr_cliente;
@@ -40,11 +41,15 @@ int main(int argc, char const *argv[]){
         }
     }
 
-    // Creo el socket TCP
+    // Creo el socket TCP que recibe las conexiones
     if ((socket_ini = socket(AF_INET,SOCK_STREAM,0))<0){
         perror("socket()");
         exit(EXIT_FAILURE);
     }
+
+    // Añado la configuracion SO_REUSEPORT al socket TCP que recibe las conexiones
+    // SO_REUSEPOR me permite 
+    setsockopt(socket_ini,SOL_SOCKET,SO_REUSEPORT, &optval, sizeof(optval));
 
     // Configuro la direccion IP, puertos y tipo de direccion del servidor
     addr_server.sin_family = AF_INET;
@@ -102,14 +107,18 @@ int main(int argc, char const *argv[]){
                 exit(EXIT_FAILURE);
             }
 
-            close(socket_cliente);
+            if (recv(socket_cliente, buffer, sizeof(buffer), 0) == 0){
+                close(socket_cliente);
+                exit(0);
+            }
 
-            exit(0);
-        }
-        
+
+        } // Fin proceso hijo
+
     } // Fin while
 
-    return 0;
+
+    exit(0);
 }
 
 // Funcion que cambia las mayusculas a minusculas en una cadena y viceversa
@@ -133,7 +142,15 @@ void conversionCadena(char* cadena){
 }
 
 void signal_handler(int signum){
+    char buffer[80];
     if (signum==SIGINT){ // Compruebo que la señal capturada es la correspondiente a teclear Ctrl+C
+    
+        shutdown(socket_cliente,SHUT_RDWR);
+        
+        if (recv(socket_cliente, buffer, sizeof(buffer), 0) == 0){
+            close(socket_cliente);
+        }
+
         if (shutdown(socket_ini,SHUT_RDWR)<0){
             perror("shutdown()");
             close(socket_ini);
@@ -142,7 +159,7 @@ void signal_handler(int signum){
 
         close(socket_ini);
 
-        exit(0);
+        exit(0);    
     }
     
 }

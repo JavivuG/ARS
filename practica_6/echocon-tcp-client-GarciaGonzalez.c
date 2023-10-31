@@ -95,8 +95,15 @@ int main(int argc, char const *argv[]){
     buffer[bytes]='\0';
     printf("%s\n", buffer);
 
+    if (shutdown(desc_socket,SHUT_RDWR)<0){
+        perror("shutdown()");
+        close(desc_socket);
+        exit(EXIT_FAILURE);
+    }
 
-    close(desc_socket); // Cierro el socket
+    if(recv(desc_socket, buffer, sizeof(buffer), 0) == 0){
+        close(desc_socket);
+    }
 
     return 0;
 }
