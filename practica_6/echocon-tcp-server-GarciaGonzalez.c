@@ -27,6 +27,7 @@ int main(int argc, char const *argv[]){
     struct sockaddr_in addr_server, addr_cliente;
     socklen_t addr_cliente_len=sizeof(addr_cliente);
 
+    // Registro la funcion encargada de manejar la señal SIGINT (Ctrl+C)
     signal(SIGINT, signal_handler);
 
     // Compruebo que el formato de entrada es el correcto
@@ -123,7 +124,6 @@ int main(int argc, char const *argv[]){
 
     } // Fin while
 
-
     exit(0);
 }
 
@@ -148,6 +148,7 @@ void conversionCadena(char* cadena){
 }
 
 // Funcion que se ejecuta al recibir la señal Ctrl+C
+// Parametro la señal recibida
 void signal_handler(int signum){
     char buffer[80];
     if (signum==SIGINT){ // Compruebo que la señal capturada es la correspondiente a teclear Ctrl+C
@@ -160,13 +161,14 @@ void signal_handler(int signum){
             close(socket_cliente);
         }
 
-        // Notifico del cierre del socket de conexion TCP 
+        // Notifico del cierre del socket de conexion TCP  para lectura y escritura
         if (shutdown(socket_ini,SHUT_RDWR)<0){
             perror("shutdown()");
             close(socket_ini);
             exit(EXIT_FAILURE);
         }
 
+        // Cierro el socket de conexion TCP
         close(socket_ini);
 
         exit(0);    
