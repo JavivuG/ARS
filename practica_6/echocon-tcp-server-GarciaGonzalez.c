@@ -13,7 +13,9 @@
 #include <errno.h>
 
 // Variable global
-int socket_ini, socket_cliente; // Descriptor del socket principal
+// Para cerrar los sockets de conexion y del cliente cuando se recibe la señal Ctrl+C
+int socket_ini; // Descriptor de socket de conexion
+int socket_cliente; // Descriptor de socket que conecta con el cliente
 
 void conversionCadena(char *cadena); // Funcion para convertir la cadena de mayuscula a miniscula y viceversa
 void signal_handler(int signum); // Funcion que se ejecuta al recibir la señal Ctrl+C
@@ -48,15 +50,16 @@ int main(int argc, char const *argv[]){
     }
 
     // Añado la configuracion SO_REUSEPORT al socket TCP que recibe las conexiones
-    // SO_REUSEPOR me permite 
+    // SO_REUSEPORT es una opción de socket que permite a múltiples sockets escuchar en el mismo puerto local.
+    // Uso esta configuracion para evitar el error bind(): Address already in use
     setsockopt(socket_ini,SOL_SOCKET,SO_REUSEPORT, &optval, sizeof(optval));
 
     // Configuro la direccion IP, puertos y tipo de direccion del servidor
     addr_server.sin_family = AF_INET;
-    addr_server.sin_port = htons(puerto);
+    addr_server.sin_port = htons(puerto); // Puerto sera el introducido por parametros o el 5 por defecto
     addr_server.sin_addr.s_addr = INADDR_ANY;
 
-    // Bindeo el socket con la direccion IP y puerto
+    // Enlazo el socket con la direccion IP y puerto del servidor TCP
     if (bind(socket_ini, (struct sockaddr *) &addr_server, sizeof(addr_server))<0){
         perror("bind()");
         exit(EXIT_FAILURE);
@@ -73,7 +76,8 @@ int main(int argc, char const *argv[]){
 
     while(true){
 
-        // Acepto la conexion de la cola de solicitudes
+        // Acepto la siguiente solicitud de la cola y me devuelve un socket especifico para ella
+        // Socket_cliente es el despcriptor del socket de la solicitud del cliente
         if ((socket_cliente=accept(socket_ini, (struct sockaddr *) &addr_cliente, &addr_cliente_len))<0){
             perror("accept()");
             exit(EXIT_FAILURE);
@@ -99,7 +103,7 @@ int main(int argc, char const *argv[]){
                 exit(EXIT_FAILURE);
             } 
 
-            // Notifico del cierre de la conexion con el cliente
+            // Notifico del cierre de la conexion con el cliente para lectura y escritura
             // No admito más envios ni lecturas
             if (shutdown(socket_cliente,SHUT_RDWR)<0){
                 perror("shutdown()");
@@ -107,11 +111,13 @@ int main(int argc, char const *argv[]){
                 exit(EXIT_FAILURE);
             }
 
+            // Hago un recv para asegurarme de que no queda nada por leer
+            // Solo hago un if porque la llamada recv es bloqueante
+            // Cuando me asguro de que no queda nada por recibir cierro el socket de conexion con el server
             if (recv(socket_cliente, buffer, sizeof(buffer), 0) == 0){
                 close(socket_cliente);
                 exit(0);
             }
-
 
         } // Fin proceso hijo
 
@@ -141,16 +147,20 @@ void conversionCadena(char* cadena){
     
 }
 
+// Funcion que se ejecuta al recibir la señal Ctrl+C
 void signal_handler(int signum){
     char buffer[80];
     if (signum==SIGINT){ // Compruebo que la señal capturada es la correspondiente a teclear Ctrl+C
     
+        // Notifico para el cierre del socket de la solicitud del cliente en lectura y escritura
         shutdown(socket_cliente,SHUT_RDWR);
         
+        // Hago un recv para asegurarme de que no queda nada por leer
         if (recv(socket_cliente, buffer, sizeof(buffer), 0) == 0){
             close(socket_cliente);
         }
 
+        // Notifico del cierre del socket de conexion TCP 
         if (shutdown(socket_ini,SHUT_RDWR)<0){
             perror("shutdown()");
             close(socket_ini);
