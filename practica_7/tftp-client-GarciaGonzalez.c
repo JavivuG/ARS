@@ -15,7 +15,7 @@
 
 
 int main(int argc, char const *argv[]){
-    int desc_socket, bytes, tamanyoData, numeroBloque, contadorBloques;
+    int desc_socket, bytes, tamanyoData, numeroBloque, contadorBloques, bytes_leidos;
     bool verbose=false;
     const char *archivo, *modo;
     char request[128], data[516], ack[4], error[128];
@@ -209,11 +209,18 @@ int main(int argc, char const *argv[]){
             printf("Enviada solicitud de escritura de \"%s\" a servidor tftp (%s)\n", archivo, argv[1]);
         }
 
+        if ((fichero=fopen(archivo,"r"))==NULL){
+            perror("fopen()");
+            close(desc_socket);
+            exit(EXIT_FAILURE);
+        }
+
         do{
             // Recibo el mensaje del servidor en el buffer
             // La variable bytes indica los bytes recibidos desde el servidor
             if ((bytes=recvfrom(desc_socket, ack, strlen(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
                 perror("recvfrom()");
+                fclose(fichero);
                 close(desc_socket);
                 exit(EXIT_FAILURE);
             }
@@ -226,13 +233,62 @@ int main(int argc, char const *argv[]){
                 close(desc_socket);
                 exit(EXIT_FAILURE);
             }
+            
+            numeroBloque++;
+            contadorBloques++;
 
             if (verbose){
-                printf("Recibido ACK del servidor tftp\n");
+                printf("Recibido ACK del bloque %d del servidor tftp\n", numeroBloque);
             }
 
+            bytes_leidos = fread(&data[4],1,sizeof(data)-4,fichero);
             
-        }while(tamanyoData==512);
+            data[0]=0;
+            data[1]=3;
+            data[2]=(unsigned int) numeroBloque / 256;
+            data[3]=(unsigned int) numeroBloque % 256;
+
+            if (sendto(desc_socket, data, strlen(data), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
+                perror("sendto()");
+                fclose(fichero);
+                close(desc_socket);
+                exit(EXIT_FAILURE);
+            }
+
+            if (verbose){
+                printf("Enviamos el datagrama Data con numero de bloque %d\n", numeroBloque);
+            }
+            
+        }while(bytes_leidos==512);
+
+        if (verbose){
+            printf("El datagrama Data con numero de bloque %d era el ultimo\n", numeroBloque);
+        }
+
+        // Recibo el ultimo ACK del servidor
+        // La variable bytes indica los bytes recibidos desde el servidor
+        if ((bytes=recvfrom(desc_socket, ack, strlen(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
+            perror("recvfrom()");
+            fclose(fichero);
+            close(desc_socket);
+            exit(EXIT_FAILURE);
+        }
+
+        numeroBloque = (unsigned char)ack[2] * 256 + (unsigned char)ack[3];
+
+        if (verbose){
+            printf("Recibido ACK del bloque %d del servidor tftp\n", numeroBloque);
+        }
+
+        if (contadorBloques!=numeroBloque){
+            fprintf(stderr, "No se han recibido los datagramas en el orden correcto\n");
+            fclose(fichero);
+            close(desc_socket);
+            exit(EXIT_FAILURE);
+        }
+
+        fclose(fichero);
+        close(desc_socket);
     }
 
     return 0;
