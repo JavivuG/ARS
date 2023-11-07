@@ -32,7 +32,7 @@ int main(int argc, char const *argv[]){
 
     // Compruebo que el formato de entrada es el correcto
     if (argc>3 || argc==2){
-        fprintf(stderr, "Uso: ./echocon-udp-server [-p puerto-servidor]\n");
+        fprintf(stderr, "Uso: ./echocon-tcp-server [-p puerto-servidor]\n");
         exit(EXIT_FAILURE);
     }
 

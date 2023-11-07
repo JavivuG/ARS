@@ -24,7 +24,7 @@ int main(int argc, char const *argv[]){
     // Compruebo que el formato de entrada es el correcto
     if (argc<3 || argc>5 || argc==4){
         // Si el formato no es correcto muestro el error
-        fprintf(stderr, "Uso: ./echocon-udp-client ip_servidor [-p puerto-servidor] cadena\n"); 
+        fprintf(stderr, "Uso: ./echocon-tcp-client ip_servidor [-p puerto-servidor] cadena\n"); 
         exit(EXIT_FAILURE);
     }
 
