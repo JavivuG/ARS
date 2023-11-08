@@ -117,6 +117,19 @@ int main(int argc, char const *argv[]){
                 printf("Recibido bloque del servidor tftp\n");
             }
 
+             // Compruebo si lo que se ha recibido es un datagrama Error
+            // Si es un datagrama de error muestro sus caracteristicas y cierro socket y el fichero
+            if (data[1]=='5'){
+                fprintf(stderr, "Codigo de error: %c\n", data[3]);
+
+                if (data[3]=='0'){
+                    fprintf(stderr,"%s\n", &data[4]);
+                }
+                fclose(fichero);
+                close(desc_socket);
+                exit(EXIT_FAILURE);
+            }
+
             // Extraigo el tamaño del campo data recibido desde el servidor
             // Resto 4 porque 2 bytes son del campo opcode y otros 2 bytes del numero de bloque
             tamanyoData=bytes-4;
@@ -143,19 +156,6 @@ int main(int argc, char const *argv[]){
                 else {
                     printf("Es el bloque numero %d\n", numeroBloque);
                 }
-            }
-
-            // Compruebo si lo que se ha recibido es un datagrama Error
-            // Si es un datagrama de error muestro sus caracteristicas y cierro socket y el fichero
-            if (data[1]=='5'){
-                fprintf(stderr, "Codigo de error: %c\n", data[3]);
-
-                if (data[3]=='0'){
-                    fprintf(stderr,"%s\n", &data[4]);
-                }
-                fclose(fichero);
-                close(desc_socket);
-                exit(EXIT_FAILURE);
             }
 
             // Escribo el campo datos del datagrama Data recibido desde el servidor TFTP en el fichero local
@@ -225,6 +225,17 @@ int main(int argc, char const *argv[]){
                 exit(EXIT_FAILURE);
             }
 
+            if (ack[1]=='5'){
+                fprintf(stderr, "Codigo de error: %c\n", data[3]);
+
+                if (ack[3]=='0'){
+                    fprintf(stderr,"%s\n", &data[4]);
+                }
+                fclose(fichero);
+                close(desc_socket);
+                exit(EXIT_FAILURE);
+            }
+
             numeroBloque = (unsigned char)ack[2] * 256 + (unsigned char)ack[3];
 
             if (contadorBloques!=numeroBloque){
@@ -269,6 +280,17 @@ int main(int argc, char const *argv[]){
         // La variable bytes indica los bytes recibidos desde el servidor
         if ((bytes=recvfrom(desc_socket, ack, strlen(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
             perror("recvfrom()");
+            fclose(fichero);
+            close(desc_socket);
+            exit(EXIT_FAILURE);
+        }
+
+        if (ack[1]=='5'){
+            fprintf(stderr, "Codigo de error: %c\n", data[3]);
+
+            if (ack[3]=='0'){
+                fprintf(stderr,"%s\n", &data[4]);
+            }
             fclose(fichero);
             close(desc_socket);
             exit(EXIT_FAILURE);
