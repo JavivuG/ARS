@@ -81,12 +81,14 @@ int main(int argc, char const *argv[]){
 
     if (strcmp(modo,"-r")==0){ // MODO LECTURA
 
-        contadorBloques=1;
-        sprintf(request, "01%s\x00octect\x00", archivo);
+        request[0] = 0; // Primero ponemos la cabecera
+        request[1] = 1;
+        strcpy(&request[2], argv[3]);                       // Ponemos ahora el nombre del fichero
+        strcpy(&request[2 + strlen(argv[3]) + 1], "octet"); // Y por ultimo ponemos el modo
         
         // Envio la solicitud de lectura al servidor TFTP
         // Con un mensaje de tipo RRQ
-        if (sendto(desc_socket, request, strlen(request), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
+        if (sendto(desc_socket, request, sizeof(request), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
             perror("sendto()");
             close(desc_socket);
             exit(EXIT_FAILURE);
@@ -103,10 +105,12 @@ int main(int argc, char const *argv[]){
             exit(EXIT_FAILURE);
         }
 
+        contadorBloques=1;
+
         do{
             // Recibo el mensaje del servidor en el buffer
             // La variable bytes indica los bytes recibidos desde el servidor
-            if ((bytes=recvfrom(desc_socket, data, strlen(data), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
+            if ((bytes=recvfrom(desc_socket, data, sizeof(data), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
                 perror("recvfrom()");
                 fclose(fichero);
                 close(desc_socket);
@@ -117,18 +121,6 @@ int main(int argc, char const *argv[]){
                 printf("Recibido bloque del servidor tftp\n");
             }
 
-             // Compruebo si lo que se ha recibido es un datagrama Error
-            // Si es un datagrama de error muestro sus caracteristicas y cierro socket y el fichero
-            if (data[1]=='5'){
-                fprintf(stderr, "Codigo de error: %c\n", data[3]);
-
-                if (data[3]=='0'){
-                    fprintf(stderr,"%s\n", &data[4]);
-                }
-                fclose(fichero);
-                close(desc_socket);
-                exit(EXIT_FAILURE);
-            }
 
             // Extraigo el tamaño del campo data recibido desde el servidor
             // Resto 4 porque 2 bytes son del campo opcode y otros 2 bytes del numero de bloque
@@ -149,6 +141,19 @@ int main(int argc, char const *argv[]){
             // Incremento el numero de bloque esperado para siguientes datagramas
             contadorBloques++;
 
+            // Compruebo si lo que se ha recibido es un datagrama Error
+            // Si es un datagrama de error muestro sus caracteristicas y cierro socket y el fichero
+            if (data[1]==5){
+                fprintf(stderr, "Codigo de error: %d\n", data[3]);
+
+                if (data[3]==0){
+                    fprintf(stderr,"%s\n", &data[4]);
+                }
+                fclose(fichero);
+                close(desc_socket);
+                exit(EXIT_FAILURE);
+            }
+
             if (verbose){
                 if (numeroBloque==1){
                     printf("Es el primer bloque (numero de bloque %d)\n", numeroBloque);
@@ -164,10 +169,13 @@ int main(int argc, char const *argv[]){
             // Formo el ACK para mandar al servidor
             // Codigo de operacion: 04
             // Incluyo el numero de bloque que extraigo del datagrama Data recibido del servidor
-            sprintf(ack, "04%c%c", data[2], data[3]);
+            ack[0]=0;
+            ack[1]=4;
+            ack[2]=data[2];
+            ack[3]=data[3];
 
             // Mando el datagrama ACK al servidor TFTP
-            if (sendto(desc_socket, ack, strlen(ack), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
+            if (sendto(desc_socket, ack, sizeof(ack), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
                 perror("sendto()");
                 fclose(fichero);
                 close(desc_socket);
@@ -181,7 +189,7 @@ int main(int argc, char const *argv[]){
         }while(tamanyoData==512); // Si el tamaño del campo datos del datagrama Data es 512 bytes continuo recibiendo paquetes del servidor TFTP
 
         if (verbose){
-            printf("El bloque %d era el ultimo: cerramos el fichero", numeroBloque);
+            printf("El bloque %d era el ultimo: cerramos el fichero\n", numeroBloque);
         }
 
         // Cierro el fichero local debido a que ya se ha formado con los datos recibidos desde el servidor TFTP
@@ -195,11 +203,14 @@ int main(int argc, char const *argv[]){
 
         contadorBloques=0;
 
-        sprintf(request, "02%s\x00octect\x00", archivo);
+        request[0] = 0; // Primero ponemos la cabecera
+        request[1] = 2;
+        strcpy(&request[2], argv[3]);                       // Ponemos ahora el nombre del fichero
+        strcpy(&request[2 + strlen(argv[3]) + 1], "octet"); // Y por ultimo ponemos el modo
 
         // Envio la solicitud de escritura al servidor TFTP
         // Con un mensaje de tipo WRQ
-        if (sendto(desc_socket, request, strlen(request), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
+        if (sendto(desc_socket, request, sizeof(request), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
             perror("sendto()");
             close(desc_socket);
             exit(EXIT_FAILURE);
@@ -218,17 +229,17 @@ int main(int argc, char const *argv[]){
         do{
             // Recibo el mensaje del servidor en el buffer
             // La variable bytes indica los bytes recibidos desde el servidor
-            if ((bytes=recvfrom(desc_socket, ack, strlen(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
+            if ((bytes=recvfrom(desc_socket, ack, sizeof(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
                 perror("recvfrom()");
                 fclose(fichero);
                 close(desc_socket);
                 exit(EXIT_FAILURE);
             }
 
-            if (ack[1]=='5'){
-                fprintf(stderr, "Codigo de error: %c\n", data[3]);
+            if (ack[1]==5){
+                fprintf(stderr, "Codigo de error: %d\n", data[3]);
 
-                if (ack[3]=='0'){
+                if (ack[3]==0){
                     fprintf(stderr,"%s\n", &data[4]);
                 }
                 fclose(fichero);
@@ -252,14 +263,16 @@ int main(int argc, char const *argv[]){
                 printf("Recibido ACK del bloque %d del servidor tftp\n", numeroBloque);
             }
 
-            bytes_leidos = fread(&data[4],1,sizeof(data)-4,fichero);
-            
             data[0]=0;
             data[1]=3;
             data[2]=(unsigned int) numeroBloque / 256;
             data[3]=(unsigned int) numeroBloque % 256;
 
-            if (sendto(desc_socket, data, strlen(data), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
+            bytes_leidos = fread(&data[4],1,sizeof(data)-4,fichero);
+            
+
+
+            if (sendto(desc_socket, data, sizeof(data), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
                 perror("sendto()");
                 fclose(fichero);
                 close(desc_socket);
@@ -278,17 +291,17 @@ int main(int argc, char const *argv[]){
 
         // Recibo el ultimo ACK del servidor
         // La variable bytes indica los bytes recibidos desde el servidor
-        if ((bytes=recvfrom(desc_socket, ack, strlen(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
+        if ((bytes=recvfrom(desc_socket, ack, sizeof(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
             perror("recvfrom()");
             fclose(fichero);
             close(desc_socket);
             exit(EXIT_FAILURE);
         }
 
-        if (ack[1]=='5'){
-            fprintf(stderr, "Codigo de error: %c\n", data[3]);
+        if (ack[1]==5){
+            fprintf(stderr, "Codigo de error: %d\n", data[3]);
 
-            if (ack[3]=='0'){
+            if (ack[3]==0){
                 fprintf(stderr,"%s\n", &data[4]);
             }
             fclose(fichero);
