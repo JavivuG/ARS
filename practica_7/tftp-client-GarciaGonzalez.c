@@ -265,14 +265,12 @@ int main(int argc, char const *argv[]){
 
             data[0]=0;
             data[1]=3;
-            data[2]=(unsigned int) numeroBloque / 256;
-            data[3]=(unsigned int) numeroBloque % 256;
+            data[2]=numeroBloque / 256;
+            data[3]=numeroBloque % 256;
 
             bytes_leidos = fread(&data[4],1,sizeof(data)-4,fichero);
             
-
-
-            if (sendto(desc_socket, data, sizeof(data), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
+            if (sendto(desc_socket, data, bytes_leidos+4, 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
                 perror("sendto()");
                 fclose(fichero);
                 close(desc_socket);
