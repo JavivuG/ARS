@@ -9,18 +9,19 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <errno.h>
 
-#define PORT 69
+void enviaPeticion(bool modo, const char* archivo, int desc_socket, struct sockaddr_in addr_server);
 
 
 int main(int argc, char const *argv[]){
     int desc_socket, bytes, tamanyoData, numeroBloque, contadorBloques, bytes_leidos;
     bool verbose=false;
-    const char *archivo, *modo;
-    char request[128], data[516], ack[4], error[128];
+    char data[516], ack[4], error[128];
     struct in_addr direccion_ip;
     struct sockaddr_in addr_server, addr_client;
+    struct servent *servicio;
     socklen_t addr_server_len=sizeof(addr_server);
     FILE *fichero;
 
@@ -41,10 +42,9 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    modo=argv[2];
-    archivo=argv[3];
-
     if (argc==5){
+        // Compruebo si se ha introducido el modo detallado de ejecucion
+        // Modo con comentarios a medida que se ejecuta
         if (strcmp(argv[4],"-v")==0){
             verbose=true;
         }
@@ -53,7 +53,6 @@ int main(int argc, char const *argv[]){
             exit(EXIT_FAILURE);
         }
     }
-
 
 
     // Creo el socket UDP
@@ -74,32 +73,39 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
+    if ((servicio=getservbyname("tftp","udp"))==NULL){
+        fprintf(stderr, "getserbyname(): No se pudo encontrar el servicio");
+        close(desc_socket);
+        exit(EXIT_FAILURE);
+    }
+
     // Configuro la IP, puerto y tipo de IP del servidor
     addr_server.sin_family = AF_INET; // Tipo IPv4
-    addr_server.sin_port = htons(PORT); // Convierto el numero de puerto a entero de 16 bits
+    addr_server.sin_port = servicio->s_port; // Convierto el numero de puerto a entero de 16 bits
     addr_server.sin_addr.s_addr = direccion_ip.s_addr;
 
-    if (strcmp(modo,"-r")==0){ // MODO LECTURA
 
-        request[0] = 0; // Primero ponemos la cabecera
-        request[1] = 1;
-        strcpy(&request[2], argv[3]);                       // Ponemos ahora el nombre del fichero
-        strcpy(&request[2 + strlen(argv[3]) + 1], "octet"); // Y por ultimo ponemos el modo
+    // Inicializo las cabeceras para los tipos de mensaje
+    // Para el datagrama Data
+    data[0]=0;
+    data[1]=3;
+
+    // Para el datagrama ACK
+    ack[0]=0;
+    ack[1]=4;
+
+
+    // Compruebo si el modo introducido por teclado es el de LECTURA o ESCRITURA
+    if (strcmp(argv[2],"-r")==0){ // MODO LECTURA
+
+        enviaPeticion(true,argv[3], desc_socket,addr_server);
         
-        // Envio la solicitud de lectura al servidor TFTP
-        // Con un mensaje de tipo RRQ
-        if (sendto(desc_socket, request, sizeof(request), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
-            perror("sendto()");
-            close(desc_socket);
-            exit(EXIT_FAILURE);
-        }
-
         if (verbose){
-            printf("Enviada solicitud de lectura de \"%s\" a servidor tftp (%s)\n", archivo, argv[1]);
+            printf("Enviada solicitud de lectura de \"%s\" a servidor tftp (%s)\n", argv[3], argv[1]);
         }
 
         // Abro el fichero en el que voy a recoger los bytes del archivo del servidor TFTP
-        if ((fichero=fopen(archivo,"w"))==NULL){
+        if ((fichero=fopen(argv[3],"w"))==NULL){
             perror("fopen()");
             close(desc_socket);
             exit(EXIT_FAILURE);
@@ -120,7 +126,6 @@ int main(int argc, char const *argv[]){
             if (verbose){
                 printf("Recibido bloque del servidor tftp\n");
             }
-
 
             // Extraigo el tamaño del campo data recibido desde el servidor
             // Resto 4 porque 2 bytes son del campo opcode y otros 2 bytes del numero de bloque
@@ -146,9 +151,8 @@ int main(int argc, char const *argv[]){
             if (data[1]==5){
                 fprintf(stderr, "Codigo de error: %d\n", data[3]);
 
-                if (data[3]==0){
-                    fprintf(stderr,"%s\n", &data[4]);
-                }
+                
+                fprintf(stderr,"Descripcion del error: %s\n", &data[4]);
                 fclose(fichero);
                 close(desc_socket);
                 exit(EXIT_FAILURE);
@@ -169,8 +173,6 @@ int main(int argc, char const *argv[]){
             // Formo el ACK para mandar al servidor
             // Codigo de operacion: 04
             // Incluyo el numero de bloque que extraigo del datagrama Data recibido del servidor
-            ack[0]=0;
-            ack[1]=4;
             ack[2]=data[2];
             ack[3]=data[3];
 
@@ -199,28 +201,17 @@ int main(int argc, char const *argv[]){
         close(desc_socket);
 
     }
-    else if (strcmp(modo,"-w")==0){ // MODO ESCRITURA
+    else if (strcmp(argv[2],"-w")==0){ // MODO ESCRITURA
 
         contadorBloques=0;
 
-        request[0] = 0; // Primero ponemos la cabecera
-        request[1] = 2;
-        strcpy(&request[2], argv[3]);                       // Ponemos ahora el nombre del fichero
-        strcpy(&request[2 + strlen(argv[3]) + 1], "octet"); // Y por ultimo ponemos el modo
-
-        // Envio la solicitud de escritura al servidor TFTP
-        // Con un mensaje de tipo WRQ
-        if (sendto(desc_socket, request, sizeof(request), 0, (struct sockaddr *) &addr_server, addr_server_len)<0){
-            perror("sendto()");
-            close(desc_socket);
-            exit(EXIT_FAILURE);
-        }
+        enviaPeticion(false,argv[3], desc_socket,addr_server);
 
         if (verbose){
-            printf("Enviada solicitud de escritura de \"%s\" a servidor tftp (%s)\n", archivo, argv[1]);
+            printf("Enviada solicitud de escritura de \"%s\" a servidor tftp (%s)\n", argv[3], argv[1]);
         }
 
-        if ((fichero=fopen(archivo,"r"))==NULL){
+        if ((fichero=fopen(argv[3],"r"))==NULL){
             perror("fopen()");
             close(desc_socket);
             exit(EXIT_FAILURE);
@@ -231,17 +222,6 @@ int main(int argc, char const *argv[]){
             // La variable bytes indica los bytes recibidos desde el servidor
             if ((bytes=recvfrom(desc_socket, ack, sizeof(ack), 0, (struct sockaddr *) &addr_server, &addr_server_len))<0){
                 perror("recvfrom()");
-                fclose(fichero);
-                close(desc_socket);
-                exit(EXIT_FAILURE);
-            }
-
-            if (ack[1]==5){
-                fprintf(stderr, "Codigo de error: %d\n", data[3]);
-
-                if (ack[3]==0){
-                    fprintf(stderr,"%s\n", &data[4]);
-                }
                 fclose(fichero);
                 close(desc_socket);
                 exit(EXIT_FAILURE);
@@ -263,8 +243,6 @@ int main(int argc, char const *argv[]){
                 printf("Recibido ACK del bloque %d del servidor tftp\n", numeroBloque);
             }
 
-            data[0]=0;
-            data[1]=3;
             data[2]=numeroBloque / 256;
             data[3]=numeroBloque % 256;
 
@@ -296,17 +274,6 @@ int main(int argc, char const *argv[]){
             exit(EXIT_FAILURE);
         }
 
-        if (ack[1]==5){
-            fprintf(stderr, "Codigo de error: %d\n", data[3]);
-
-            if (ack[3]==0){
-                fprintf(stderr,"%s\n", &data[4]);
-            }
-            fclose(fichero);
-            close(desc_socket);
-            exit(EXIT_FAILURE);
-        }
-
         numeroBloque = (unsigned char)ack[2] * 256 + (unsigned char)ack[3];
 
         if (verbose){
@@ -325,4 +292,23 @@ int main(int argc, char const *argv[]){
     }
 
     return 0;
+}
+
+// Funcion que envia peticion al servidor
+// Si modo==true entonces MODO LECTURA
+// Si modo==false entonces MODO ESCRITURA
+void enviaPeticion(bool modo, const char* archivo, int desc_socket, struct sockaddr_in addr_server){
+    char request[128];
+    
+    request[0] = 0;
+    request[1] = modo ? 1 : 2;
+    strcpy(&request[2], archivo);                       // Ponemos ahora el nombre del fichero
+    strcpy(&request[2 + strlen(archivo) + 1], "octet"); // Y por ultimo ponemos el modo
+
+
+    if (sendto(desc_socket, request, sizeof(request), 0, (struct sockaddr *) &addr_server, sizeof(addr_server))<0){
+        perror("sendto()");
+        close(desc_socket);
+        exit(EXIT_FAILURE);
+    }
 }
