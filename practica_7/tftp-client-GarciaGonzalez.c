@@ -17,7 +17,7 @@ void enviaPeticion(bool modo, const char* archivo, int desc_socket, struct socka
 // Funcion que comprueba que los bloques se reciben en el orden correcto
 void comprobarOrdenPaquetes(char* ack, int *numeroBloque,int contadorBloques, FILE* fichero, int desc_socket);
 // Funcion que comprueba si el datagrama recibido es un datagrama ERROR
-void comprobarError(char *datagrama, int desc_socket);
+void comprobarError(char *datagrama, int desc_socket, FILE* fichero);
 
 
 int main(int argc, char const *argv[]){
@@ -159,7 +159,7 @@ int main(int argc, char const *argv[]){
             contadorBloques++;
 
             // Compruebo si es un datagrama ERROR
-            comprobarError(data, desc_socket);
+            comprobarError(data, desc_socket, fichero);
 
             // Muestro el numero de bloque recibido (Modo detallado de ejecucion)
             if (verbose){
@@ -241,7 +241,7 @@ int main(int argc, char const *argv[]){
             comprobarOrdenPaquetes(ack, &numeroBloque, contadorBloques, fichero, desc_socket);
 
             // Compruebo si es un datagrama ERROR
-            comprobarError(ack, desc_socket);
+            comprobarError(ack, desc_socket, fichero);
 
             // Muestro por pantalla que he recibido el ACK del servidor TFTP (Modo detallado)
             if (verbose){
@@ -301,7 +301,7 @@ int main(int argc, char const *argv[]){
         comprobarOrdenPaquetes(ack, &numeroBloque, contadorBloques, fichero, desc_socket);
 
         // Compruebo si es un datagrama ERROR
-        comprobarError(ack, desc_socket);
+        comprobarError(ack, desc_socket, fichero);
 
         // Muetro por pantalla que he recibido el ultimo ACK del servidor TFTP (Modo detallado)
         if (verbose){
@@ -320,7 +320,7 @@ int main(int argc, char const *argv[]){
     exit(EXIT_SUCCESS);
 }
 
-// Funcion que envia peticion al servidor
+// Funcion que envia peticion al servidor TFTP
 // Si modo==true entonces MODO LECTURA
 // Si modo==false entonces MODO ESCRITURA
 void enviaPeticion(bool modo, const char* archivo, int desc_socket, struct sockaddr_in addr_server){
@@ -355,12 +355,13 @@ void comprobarOrdenPaquetes(char* datagrama, int *numeroBloque, int contadorBloq
 }
 
 // Funcion que comprueba si el datagrama recibido es un datagrama ERROR
-void comprobarError(char *datagrama, int desc_socket){
+void comprobarError(char *datagrama, int desc_socket, FILE* fichero){
     // Compruebo si es un datagrama ERROR
     // Si es un datagrama de error muestro sus caracteristicas y cierro socket y el fichero
     if (datagrama[1]==5){
         fprintf(stderr, "Codigo de error: %d\n", datagrama[3]);
         fprintf(stderr,"Descripcion del error: %s\n", &datagrama[4]);
+        fclose(fichero);
         close(desc_socket);
         exit(EXIT_FAILURE);
     }
