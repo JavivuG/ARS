@@ -17,7 +17,11 @@
 //  acumulador += (unsigned int) *puntero;
 //  pun
 //} 
-//
+//IMprimir mensajes de error de despcriotn
+
+void mensajeEnvioVerbose(EchoRequest request);
+void mensajeRecepcionVerbose(EchoReply reply);
+void imprimirMensajesError(EchoReply reply);
 
 int main(int argc, char const *argv[]){
     int desc_socket;
@@ -63,18 +67,11 @@ int main(int argc, char const *argv[]){
     strcpy(request.payload,"Este es el payload.");
 
     if (verbose){
-        printf("-> Generando cabecera ICMP...\n");
-        printf("-> Type: %d\n", request.icmpHdr.type);
-        printf("-> Code: %d\n", request.icmpHdr.code);
-        printf("-> PID: %d\n", request.pid);
-        printf("-> Sequence Number: %d\n", request.sequence);
-        printf("-> Cadena a enviar: %s\n", request.payload);
-        printf("-> Checksum: %d\n", request.icmpHdr.checksum);
-        printf("-> Tamaño total del datagrama: %d\n", sizeof(request));
+        mensajeEnvioVerbose(request);
     }
 
     // Creo el socket UDP y asigno el descriptor del socket a la varible desc_socket
-    if ((desc_socket = socket(AF_INET,SOCK_RAW,0))<0){
+    if ((desc_socket = socket(AF_INET,SOCK_RAW,IPPROTO_ICMP))<0){
         perror("socket()");
         exit(EXIT_FAILURE);
     }
@@ -91,7 +88,7 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    if((servicio=getservbyname("echo", "udp"))==NULL){
+    if((servicio=getservbyname("echo", "tcp"))==NULL){
         perror("getservbyname()");
         close(desc_socket);
         exit(EXIT_FAILURE);
@@ -119,16 +116,126 @@ int main(int argc, char const *argv[]){
     printf("Respuesta recibida desde: %s\n", inet_ntoa(reply.ipHdr.iaSrc));
 
     if (verbose){
-        printf("-> Tamaño de la respuesta\n", sizeof(reply));
-        printf("-> Cadena recibida: %s\n", reply.icmpMsg.payload);
-        printf("-> PID: %d\n", reply.icmpMsg.pid);
-        printf("-> TTL: %d\n", reply.ipHdr.TTL);
+        mensajeRecepcionVerbose(reply);
     }
 
-    if (reply.icmpMsg.icmpHdr.type==0 && reply.icmpMsg.icmpHdr.code==0){
-        printf("Respuesta correcta: (Type %d, Code %d)\n", reply.icmpMsg.icmpHdr.type, reply.icmpMsg.icmpHdr.code);
+    if (reply.icmpMsg.icmpHdr.type==0){
+        printf("Respuesta correcta: (Type %u, Code %u)\n", reply.icmpMsg.icmpHdr.type, reply.icmpMsg.icmpHdr.code);
     }
     else {
-        printf("%s (Type %d, Code %d)\n", reply.icmpMsg.payload, reply.icmpMsg.icmpHdr.type, reply.icmpMsg.icmpHdr.code);
+        imprimirMensajesError(reply);
     }
+
+    exit(EXIT_SUCCESS);
+}
+
+void mensajeEnvioVerbose(EchoRequest request){
+    printf("-> Generando cabecera ICMP...\n");
+    printf("-> Type: %u\n", request.icmpHdr.type);
+    printf("-> Code: %u\n", request.icmpHdr.code);
+    printf("-> PID: %u\n", request.pid);
+    printf("-> Sequence Number: %u\n", request.sequence);
+    printf("-> Cadena a enviar: %s\n", request.payload);
+    printf("-> Checksum: 0x%x\n", request.icmpHdr.checksum);
+    printf("-> Tamaño total del datagrama: %lu\n", sizeof(request));
+}
+
+void mensajeRecepcionVerbose(EchoReply reply){
+    printf("-> Tamaño de la respuesta: %lu\n", sizeof(reply));
+    printf("-> Cadena recibida: %s\n", reply.icmpMsg.payload);
+    printf("-> PID: %u\n", reply.icmpMsg.pid);
+    printf("-> TTL: %u\n", reply.ipHdr.TTL);
+}
+
+void imprimirMensajesError(EchoReply reply){
+    unsigned char tipo=reply.icmpMsg.icmpHdr.type;
+    unsigned char codigo=reply.icmpMsg.icmpHdr.code;
+
+    switch (tipo){
+        case 3:
+            printf("Destination Unreachable: ");
+            switch (codigo){
+                case 0:
+                    printf("Net Unreachable");
+                    break;
+                case 1:
+                    printf("Host Unreachable");
+                    break;
+                case 2:
+                    printf("Protocol Unreachable");
+                    break;
+                case 3:
+                    printf("Port Unreachable");
+                    break;
+                case 4:
+                    printf("Fragmentation Needed");
+                    break;
+                case 5:
+                    printf("Source Route Failed");
+                    break;
+                case 6:
+                    printf("Destination Network Unknown");
+                    break;
+                case 7:
+                    printf("Destination Host Unknown");
+                    break;
+                case 8:
+                    printf("Source Host Isolated");
+                    break;
+                case 11:
+                    printf("Destination Network Unreachable for Type of Service");
+                    break;
+                case 12:
+                    printf("Destination Host Unreachable for Type of Service");
+                    break;
+                case 13:
+                    printf("Communication Administratively Prohibited");
+                    break;  
+                case 14:
+                    printf("Host Precedence Violation");
+                    break; 
+                case 15:
+                    printf("Precedence Cutoff in Effect");
+                    break;         
+            }
+            break;
+        case 5:
+            printf("Redirect: ");
+            switch (codigo){
+                case 1:
+                    printf("Redirect for Destination Host");
+                    break;
+                case 3:
+                    printf("Redirect for Destination Host Based on Type-of-Service");
+                    break;
+            }
+            break;
+        case 11:
+            printf("Time exceeded: ");
+            switch (codigo){
+                case 0:
+                    printf("Time-to-Live Exceeded in Transit");
+                    break;
+                case 1:
+                    printf("Fragment Reassembly Time Exceeded");
+                    break;
+            }
+            break;
+        case 12:
+            printf("Parameter problem: ");
+            switch (codigo){
+                case 0:
+                    printf("Pointer indicates the error");
+                    break;
+                case 1:
+                    printf("Missing a Required Option");
+                    break;
+                case 2:
+                    printf("Bad Length");
+                    break;
+            }
+            break;
+    }
+
+    printf(" (Type %u, Code %u)\n", tipo, codigo);
 }
