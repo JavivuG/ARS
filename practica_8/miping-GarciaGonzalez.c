@@ -13,15 +13,11 @@
 #include "ip-icmp-ping.h"
 #include <errno.h>
 
-// for (int i=0; i<(sizeof(datagrama)); i++){
-//  acumulador += (unsigned int) *puntero;
-//  pun
-//} 
-//IMprimir mensajes de error de despcriotn
 
 void mensajeEnvioVerbose(EchoRequest request);
 void mensajeRecepcionVerbose(EchoReply reply);
 void imprimirMensajesError(EchoReply reply);
+unsigned short int calcularChecksum(unsigned short int *datagrama, int tam);
 
 int main(int argc, char const *argv[]){
     int desc_socket;
@@ -65,6 +61,8 @@ int main(int argc, char const *argv[]){
     request.pid=getpid();
     request.sequence=0;
     strcpy(request.payload,"Este es el payload.");
+    request.icmpHdr.checksum=calcularChecksum((unsigned short int *) &request, sizeof(request));
+
 
     if (verbose){
         mensajeEnvioVerbose(request);
@@ -88,14 +86,14 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    if((servicio=getservbyname("echo", "tcp"))==NULL){
+    if((servicio=getservbyname("echo", "udp"))==NULL){
         perror("getservbyname()");
         close(desc_socket);
         exit(EXIT_FAILURE);
     }
 
     addr_server.sin_family = AF_INET; // Tipo de direccion IPv4
-    addr_server.sin_port = servicio->s_port; // Puerto de echo
+    addr_server.sin_port = servicio->s_port; // Puerto del servicio
     addr_server.sin_addr = direccion_ip; // Direccion IP del servidor
 
     // Envio el paquete ICMP de tipo REQUEST
@@ -118,6 +116,7 @@ int main(int argc, char const *argv[]){
     if (verbose){
         mensajeRecepcionVerbose(reply);
     }
+
 
     if (reply.icmpMsg.icmpHdr.type==0){
         printf("Respuesta correcta: (Type %u, Code %u)\n", reply.icmpMsg.icmpHdr.type, reply.icmpMsg.icmpHdr.code);
@@ -238,4 +237,23 @@ void imprimirMensajesError(EchoReply reply){
     }
 
     printf(" (Type %u, Code %u)\n", tipo, codigo);
+}
+
+unsigned short int calcularChecksum(unsigned short int *datagrama, int tam){
+    unsigned short int* puntero=datagrama;
+    unsigned int acum=0;
+    int i;
+
+    for (i=0; i<(tam/2); i++){
+        acum += (unsigned int) (*puntero);
+        puntero++;
+    }
+
+    acum = (acum >> 16) + (acum & 0x0000ffff);
+    acum = (acum >> 16) + (acum & 0x0000ffff);
+
+    acum = ~acum;
+
+    return (unsigned short int) acum;
+
 }
