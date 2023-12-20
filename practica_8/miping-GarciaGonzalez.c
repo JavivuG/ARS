@@ -9,7 +9,6 @@
 #include <sys/socket.h>
 #include <netinet/ip.h>
 #include <arpa/inet.h>
-#include <netdb.h>
 #include "ip-icmp-ping.h"
 #include <errno.h>
 
@@ -19,6 +18,7 @@ void mensajeEnvioVerbose(EchoRequest request);
 void mensajeRecepcionVerbose(EchoReply reply);
 // Funcion que imprime los mensajes de error de la respuesta ICMP
 void imprimirMensajesError(EchoReply reply);
+// Funcion que calcula el checksum de un datagrama ICMP
 unsigned short int calcularChecksum(unsigned short int *datagrama, int tam);
 
 int main(int argc, char const *argv[]){
@@ -26,7 +26,6 @@ int main(int argc, char const *argv[]){
     bool verbose=false;
     EchoRequest request;
     EchoReply reply;
-    struct servent *servicio; // Variable que almacena la informacion asociada al servicio ICMP
     struct in_addr direccion_ip;
     struct sockaddr_in addr_client, addr_server;
     socklen_t addr_server_len=sizeof(addr_server);
@@ -92,16 +91,9 @@ int main(int argc, char const *argv[]){
         exit(EXIT_FAILURE);
     }
 
-    // Obtengo la informacion del servicio ICMP
-    if((servicio=getservbyname("echo", "udp"))==NULL){
-        perror("getservbyname()");
-        close(desc_socket);
-        exit(EXIT_FAILURE);
-    }
-
     // Configuro la IP, puerto y tipo de IP del servidor
     addr_server.sin_family = AF_INET; // Tipo de direccion IPv4
-    addr_server.sin_port = servicio->s_port; // Puerto del servicio
+    addr_server.sin_port = 0; // Puerto del servicio
     addr_server.sin_addr = direccion_ip; // Direccion IP del servidor
 
     // Envio el datagrama ICMP de tipo REQUEST
@@ -259,6 +251,7 @@ void imprimirMensajesError(EchoReply reply){
 }
 
 // Funcion que calcula el checksum de un datagrama
+// Devuelve el checksum calculado (entero de 16 bits sin signo)
 unsigned short int calcularChecksum(unsigned short int *datagrama, int tam){
     unsigned short int* puntero=datagrama;
     unsigned int acum=0;
