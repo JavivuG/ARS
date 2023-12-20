@@ -93,7 +93,7 @@ int main(int argc, char const *argv[]){
 
     // Configuro la IP, puerto y tipo de IP del servidor
     addr_server.sin_family = AF_INET; // Tipo de direccion IPv4
-    addr_server.sin_port = 0; // Puerto del servicio
+    addr_server.sin_port = 0; // ICMP no utiliza puertos por lo que se pone a 0
     addr_server.sin_addr = direccion_ip; // Direccion IP del servidor
 
     // Envio el datagrama ICMP de tipo REQUEST
