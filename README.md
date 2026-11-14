@@ -1,32 +1,58 @@
-# ARS — Arquitectura de Redes y Servicios
+<div align="center">
 
-Clientes y servidores de red escritos en C sobre la API de sockets de POSIX: eco UDP y TCP, un cliente TFTP y una implementación propia de `ping` con sockets RAW.
+# Sockets en C: UDP, TCP, TFTP e ICMP
 
-> Asignatura **Arquitectura de Redes y Servicios** · 3.º curso, 1.er cuatrimestre · Curso 2023-2024 · Grado en Ingeniería Informática, Universidad de Valladolid.
+**Clientes y servidores de red escritos desde cero en C sobre la API de sockets POSIX: eco UDP y TCP, un servidor concurrente, un cliente TFTP y un `ping` propio con sockets RAW.**
 
-## Qué hace
+![C](https://img.shields.io/badge/C-00599C?style=for-the-badge&logo=c&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
+![POSIX sockets](https://img.shields.io/badge/POSIX_sockets-555555?style=for-the-badge)
+![TCP/IP](https://img.shields.io/badge/UDP_·_TCP_·_ICMP-0A66C2?style=for-the-badge)
+
+<sub>Arquitectura de Redes y Servicios · Grado en Ingeniería Informática · Universidad de Valladolid · Curso 2023-2024</sub>
+
+</div>
+
+```console
+$ ./echocon-tcp-server -p 5556 &
+--- Servidor iniciado ---
+$ ./echocon-tcp-client 127.0.0.1 -p 5556 HolaMundo
+hOLAmUNDO
+```
+
+## En pocas palabras
+
+- **Reto**: implementar servicios de red reales trabajando directamente con sockets, sin bibliotecas de alto nivel, y entender qué viaja por la red en cada protocolo.
+- **Solución**: seis programas en C para Linux: eco sobre UDP y TCP (cliente y servidor), un servidor TCP concurrente, un cliente TFTP con lectura y escritura de ficheros y una implementación de `ping` con ICMP sobre sockets RAW.
+- **Demuestra**: programación de red a bajo nivel, construcción manual de cabeceras y paquetes de protocolo, concurrencia con procesos, gestión de señales y control de errores de llamadas al sistema.
+
+## Lo más destacado
+
+- **Servidor TCP concurrente**: cada conexión aceptada se atiende en un proceso hijo creado con `fork()`; un manejador de `SIGINT` cierra los sockets al pulsar Ctrl+C y `SO_REUSEPORT` evita `bind(): Address already in use` al reiniciar.
+- **Cliente TFTP completo**: construye a mano las peticiones RRQ/WRQ, transfiere bloques de 512 bytes, comprueba el orden de bloques y ACK y trata los datagramas `ERROR` del servidor.
+- **`ping` con sockets RAW**: rellena la cabecera ICMP (tipo, código, PID, número de secuencia), calcula el *checksum* y traduce los errores ICMP (por ejemplo, *Destination Unreachable*) a mensajes legibles.
+- **Compila limpio**: los seis programas compilan sin avisos con `gcc -Wall`, y el eco UDP y TCP se ha probado en local (salida de arriba).
+- **Programas robustos**: validación de argumentos con mensaje de uso en cada programa y `perror()` en todas las llamadas al sistema.
+
+## Competencias
+
+| Área | Qué se aplicó |
+|------|---------------|
+| Redes | UDP, TCP, TFTP e ICMP; `SOCK_DGRAM`, `SOCK_STREAM`, `SOCK_RAW` |
+| Protocolos a bajo nivel | Formato de paquetes RRQ/WRQ/DATA/ACK/ERROR y cabeceras ICMP con *checksum* |
+| Sistemas | Procesos con `fork()`, señales (`SIGINT`), opciones de socket |
+| Calidad | Compilación sin avisos con `-Wall`, control de errores sistemático |
+
+## Qué contiene
 
 | Práctica | Programa | Descripción |
 |----------|----------|-------------|
-| [Tema 5](practica_5/) | `echocon-udp-client` / `echocon-udp-server` | Servicio de eco sobre UDP: el servidor devuelve la cadena recibida con mayúsculas y minúsculas invertidas. |
-| [Tema 6](practica_6/) | `echocon-tcp-client` / `echocon-tcp-server` | El mismo servicio sobre TCP, con un servidor concurrente que atiende a cada cliente en un proceso hijo. |
-| [Tema 7](practica_7/) | `tftp-client` | Cliente TFTP que descarga (`-r`) o sube (`-w`) ficheros en modo `octet`, con salida detallada opcional (`-v`). |
-| [Tema 8](practica_8/) | `miping` | Envío de un ICMP *Echo Request* mediante sockets RAW e interpretación de la respuesta, incluidos los mensajes de error ICMP. |
+| [Tema 5](practica_5/) | `echocon-udp-client` / `echocon-udp-server` | Servicio de eco sobre UDP: el servidor devuelve la cadena con mayúsculas y minúsculas invertidas. |
+| [Tema 6](practica_6/) | `echocon-tcp-client` / `echocon-tcp-server` | El mismo servicio sobre TCP, con un servidor concurrente (un proceso hijo por cliente). |
+| [Tema 7](practica_7/) | `tftp-client` | Cliente TFTP que descarga (`-r`) o sube (`-w`) ficheros en modo `octet`, con salida detallada opcional (`-v`). El puerto se obtiene con `getservbyname("tftp", "udp")`. |
+| [Tema 8](practica_8/) | `miping` | Envío de un ICMP *Echo Request* con sockets RAW e interpretación de la respuesta y de los mensajes de error ICMP. Usa la cabecera `ip-icmp-ping.h` que da el profesorado. |
 
 Las carpetas `practica_5` y `practica_6` incluyen además el enunciado y la estructura básica de un programa UDP/TCP en PDF.
-
-## Tecnologías
-
-- C (GCC) sobre Linux
-- API de sockets de POSIX: `SOCK_DGRAM`, `SOCK_STREAM`, `SOCK_RAW`
-- Protocolos UDP, TCP, TFTP e ICMP
-
-## Aspectos técnicos destacados
-
-- **Servidor TCP concurrente**: cada conexión aceptada se atiende en un proceso creado con `fork()`. Un manejador de `SIGINT` cierra los sockets al pulsar Ctrl+C, y `SO_REUSEPORT` evita el error `bind(): Address already in use` al reiniciar el servidor.
-- **Cliente TFTP completo**: construye a mano las peticiones RRQ/WRQ, transfiere bloques de 512 bytes y considera terminada la transferencia al llegar un bloque más corto. Comprueba también el orden de los bloques y los ACK y trata los datagramas `ERROR` del servidor. El puerto se obtiene con `getservbyname("tftp", "udp")`.
-- **`ping` propio**: rellena la cabecera ICMP (tipo, código, PID, número de secuencia), calcula el *checksum* y traduce los tipos y códigos de error (por ejemplo, *Destination Unreachable*) a mensajes legibles. Usa el fichero de cabecera `ip-icmp-ping.h` que da el profesorado.
-- Validación de los argumentos de línea de comandos, con un mensaje de uso en cada programa, y control de errores de todas las llamadas al sistema con `perror()`.
 
 ## Estructura del repositorio
 
@@ -44,13 +70,16 @@ ARS/
 - Permisos de superusuario para `miping`, porque abre un socket RAW
 - Un servidor TFTP accesible para probar `tftp-client`
 
-## Cómo compilar y ejecutar
+## Cómo ejecutarlo
+
+<details>
+<summary>Compilación de los seis programas</summary>
 
 ```bash
 git clone https://github.com/JavivuG/ARS.git
 cd ARS
 
-# Compilación (los nombres de los ejecutables coinciden con los del .gitignore)
+# Los nombres de los ejecutables coinciden con los del .gitignore
 gcc -Wall -o practica_5/echocon-udp-server practica_5/echocon-udp-server-GarciaGonzalez.c
 gcc -Wall -o practica_5/echocon-udp-client practica_5/echocon-udp-client-GarciaGonzalez.c
 gcc -Wall -o practica_6/echocon-tcp-server practica_6/echocon-tcp-server-GarciaGonzalez.c
@@ -59,7 +88,10 @@ gcc -Wall -o practica_7/tftp-client       practica_7/tftp-client-GarciaGonzalez.
 gcc -Wall -o practica_8/miping            practica_8/miping-GarciaGonzalez.c
 ```
 
-Uso de cada programa:
+</details>
+
+<details>
+<summary>Uso de cada programa</summary>
 
 ```bash
 ./echocon-udp-server [-p puerto-servidor]
@@ -73,14 +105,18 @@ Uso de cada programa:
 sudo ./miping ip_servidor [-v]
 ```
 
-Ejemplo en local:
+</details>
+
+Ejemplo rápido en local:
 
 ```bash
 ./practica_5/echocon-udp-server -p 5555 &
 ./practica_5/echocon-udp-client 127.0.0.1 -p 5555 HolaMundo   # -> hOLAmUNDO
 ```
 
-Los seis programas compilan sin avisos con `gcc -Wall`, y los ejemplos de eco UDP y TCP se han probado en local. El cliente TFTP y `miping` no se han probado, porque necesitan un servidor TFTP y permisos de superusuario.
+## Estado y limitaciones
+
+- El eco UDP y TCP se ha probado en local. El cliente TFTP y `miping` no se han probado al preparar este README, porque necesitan un servidor TFTP y permisos de superusuario.
 
 ## Autoría
 
@@ -88,4 +124,4 @@ Javier García González.
 
 ---
 
-Forma parte de [UVa-Projects](https://github.com/JavivuG/UVa-Projects).
+<div align="center"><sub>Parte de <a href="https://github.com/JavivuG/UVa-Projects">UVa-Projects</a> · Javier García González</sub></div>
