@@ -13,12 +13,11 @@
 
 </div>
 
-```console
-$ ./echocon-tcp-server -p 5556 &
---- Servidor iniciado ---
-$ ./echocon-tcp-client 127.0.0.1 -p 5556 HolaMundo
-hOLAmUNDO
-```
+<p align="center">
+  <img src="docs/screenshots/eco-tcp-udp.png" width="651" alt="Terminal con los servidores de eco TCP y UDP lanzados en localhost, tres clientes que reciben su cadena con mayúsculas y minúsculas invertidas y el cierre de los servidores con SIGINT">
+  <br>
+  <sub>Salida real del programa.</sub>
+</p>
 
 ## En pocas palabras
 
@@ -31,7 +30,7 @@ hOLAmUNDO
 - **Servidor TCP concurrente**: cada conexión aceptada se atiende en un proceso hijo creado con `fork()`; un manejador de `SIGINT` cierra los sockets al pulsar Ctrl+C y `SO_REUSEPORT` evita `bind(): Address already in use` al reiniciar.
 - **Cliente TFTP completo**: construye a mano las peticiones RRQ/WRQ, transfiere bloques de 512 bytes, comprueba el orden de bloques y ACK y trata los datagramas `ERROR` del servidor.
 - **`ping` con sockets RAW**: rellena la cabecera ICMP (tipo, código, PID, número de secuencia), calcula el *checksum* y traduce los errores ICMP (por ejemplo, *Destination Unreachable*) a mensajes legibles.
-- **Compila limpio**: los seis programas compilan sin avisos con `gcc -Wall`, y el eco UDP y TCP se ha probado en local (salida de arriba).
+- **Compila limpio**: los seis programas compilan sin avisos con `gcc -Wall`, y el eco UDP y TCP se ha probado en local (captura de arriba).
 - **Programas robustos**: validación de argumentos con mensaje de uso en cada programa y `perror()` en todas las llamadas al sistema.
 
 ## Competencias
